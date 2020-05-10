@@ -1,0 +1,125 @@
+;; (map set '(action project-id) (parse "start 3"))
+
+;; created - 0, started - 1, stopped - 2, finished = 3
+
+;; in log: id, type - attribute_change/status_change
+
+(module "sqlite3.lsp")
+
+(setq project-list '())
+
+(define (initialise-db-and-data)
+    (begin
+        (sql3:open "freelancer")
+        (sql3:sql "CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY, project_name VARCHAR(100) NOT NULL, client VARCHAR(100) NOT NULL, hourly_rate FLOAT NOT NULL, created_at TIMESTAMP DEFAULT current_timestamp, status INTEGER DEFAULT 0 NOT NULL, finished_at TIMESTAMP);")
+        (sql3:sql "CREATE TABLE IF NOT EXISTS log (id INTEGER PRIMARY KEY, project_id integer, type VARCHAR(20), changed_at TIMESTAMP DEFAULT current_timestamp, old_project_name VARCHAR(100), new_project_name VARCHAR(100), old_client VARCHAR(100), new_client VARCHAR(100), old_hourly_rate FLOAT, new_hourly_rate FLOAT, old_status INTEGER, new_status INTEGER);")
+        (sql3:sql "CREATE TRIGGER IF NOT EXISTS log_attributes_update AFTER UPDATE ON projects WHEN OLD.project_name <> NEW.project_name OR OLD.client <> NEW.client OR OLD.hourly_rate <> NEW.hourly_rate BEGIN INSERT INTO logs (project_id, type, old_project_name, new_project_name, old_client, new_client, old_hourly_rate, new_hourly_rate) VALUES (OLD.id, 'ATTRIBUTES', OLD.project_name, NEW.project_name, OLD.client, NEW.client, OLD.hourly_rate, NEW.hourly_rate); END;")
+        (sql3:sql "CREATE TRIGGER IF NOT EXISTS log_status_update AFTER UPDATE ON projects WHEN OLD.status <> NEW.status BEGIN INSERT INTO logs (project_id, type, old_status, new_status) VALUES (OLD.id, 'STATUS', OLD.status, NEW.status); END;")
+    )
+)
+
+(define (main)
+    (println "\nType 'help' for available commands\n")
+    (do-while (!= action "exit")
+        (begin
+            (initialise-db-and-data)
+            (print "? ")
+            (setq action-string (read-line))
+            (setq tokenised-string (parse action-string))
+            (setq action (tokenised-string 0))
+            (case action
+                ("new" (create-project))
+                ("modify" (modify-project (int (tokenised-string 1))))
+                ("finish" (finish-project (int (tokenised-string 1))))
+                ("list" (list-projects))
+                ("list-all" (list-all-projects))
+                ("start" (start-project (int (tokenised-string 1))))
+                ("pstart" (pstart-project (int (tokenised-string 1))))
+                ("stop" (stop-project (int (tokenised-string 1))))
+                ("help" (show-help))
+                ("exit" (exit-application))
+                (true (println "Invalid command!"))
+            )
+        )
+    )
+)
+
+(define (show-help)
+    (begin
+        (println "\nAvailable commands:\n")
+        (println "new <project-name>\t: Create a new project. Other required inputs will follow.")
+        (println "modify <project-id>\t: Modify attributes of project. Other required inputs will follow.")
+        (println "finish <project-id>\t: Complete project. All details will be saved.\n")
+        (println "list\t: List all unfinished projects.")
+        (println "list-all\t: List all projects undertaken till date.\n")
+        (println "start <project-id>\t: Resume working on project.")
+        (println "pstart <project-id>\t: Resume working on another project in parallel.")
+        (println "stop <project-id>\t: Pause working on project.\n")
+        (println "help\t: Show this help message.")
+        (println "exit\t: Will pause working on all projects and exit application.\n")
+    )
+)
+
+(define (create-project)
+    (begin
+        (print "Project name: ")
+        (setq project-name (read-line))
+        (print "Client: ")
+        (setq client (read-line))
+        (print "Hourly rate: ")
+        (setq rate (float (read-line)))
+        (if (sql3:sql "INSERT INTO projects (project_name, hourly_rate, client) VALUES (?, ?, ?);" (list project-name rate client))
+            (println project-name " created!")
+            (sql3:error)
+        )
+        ;;(push (list project-name rate) project-list -1)
+    )
+)
+
+(define (modify-project project-id)
+    (println project-name " modified!")
+)
+
+(define (finish-project project-id)
+    (if (sql3:sql "UPDATE projects SET status = 3 WHERE id = ?;" (list project-id))
+        (println project-id " completed!")
+        (sql3:error)
+    )
+)
+
+(define (list-projects)
+    (map println (sql3:sql "SELECT * FROM projects WHERE status <> 3;"))
+)
+
+(define (list-all-projects)
+    (map println (sql3:sql "SELECT * FROM projects;"))
+)
+
+(define (start-project project-id)
+    (if (sql3:sql "UPDATE projects SET status = 1 WHERE id = ?;" (list project-id))
+        (println project-id " started!")
+        (sql3:error)
+    )
+)
+
+(define (pstart-project project-id)
+    (println "Not yet implemented!")
+)
+
+(define (stop-project project-id)
+    (if (sql3:sql "UPDATE projects SET status = 2 WHERE id = ?;" (list project_id))
+        (println "Work on project stopped")
+        (sql3:error)
+    )
+)
+
+(define (exit-application)
+    (begin
+        (if (sql3:sql "UPDATE projects SET status = 2 WHERE status = 1;")
+            (println "Work on all projects stopped!")
+            (sql3:error)
+        )
+        (sql3:close)
+        (println "\nBye for now!\n")
+    )
+)
