@@ -1,20 +1,17 @@
-;; (map set '(action project-id) (parse "start 3"))
-
-;; created - 0, started - 1, stopped - 2, finished = 3
-
-;; in log: id, type - attribute_change/status_change
+; created - 0, started - 1, stopped - 2, finished = 3, parallel = 4, terminated = 5
 
 (module "sqlite3.lsp")
 
-(setq project-list '())
+(setq working-project-id nil)
 
 (define (initialise-db-and-data)
     (begin
         (sql3:open "freelancer")
-        (sql3:sql "CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY, project_name VARCHAR(100) NOT NULL, client VARCHAR(100) NOT NULL, hourly_rate FLOAT NOT NULL, created_at TIMESTAMP DEFAULT current_timestamp, status INTEGER DEFAULT 0 NOT NULL, finished_at TIMESTAMP);")
-        (sql3:sql "CREATE TABLE IF NOT EXISTS log (id INTEGER PRIMARY KEY, project_id integer, type VARCHAR(20), changed_at TIMESTAMP DEFAULT current_timestamp, old_project_name VARCHAR(100), new_project_name VARCHAR(100), old_client VARCHAR(100), new_client VARCHAR(100), old_hourly_rate FLOAT, new_hourly_rate FLOAT, old_status INTEGER, new_status INTEGER);")
-        (sql3:sql "CREATE TRIGGER IF NOT EXISTS log_attributes_update AFTER UPDATE ON projects WHEN OLD.project_name <> NEW.project_name OR OLD.client <> NEW.client OR OLD.hourly_rate <> NEW.hourly_rate BEGIN INSERT INTO logs (project_id, type, old_project_name, new_project_name, old_client, new_client, old_hourly_rate, new_hourly_rate) VALUES (OLD.id, 'ATTRIBUTES', OLD.project_name, NEW.project_name, OLD.client, NEW.client, OLD.hourly_rate, NEW.hourly_rate); END;")
-        (sql3:sql "CREATE TRIGGER IF NOT EXISTS log_status_update AFTER UPDATE ON projects WHEN OLD.status <> NEW.status BEGIN INSERT INTO logs (project_id, type, old_status, new_status) VALUES (OLD.id, 'STATUS', OLD.status, NEW.status); END;")
+        (sql3:sql "CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY, project_name VARCHAR(100) NOT NULL, client VARCHAR(100) NOT NULL, hourly_rate FLOAT NOT NULL, billable_time INT DEFAULT 0, created_at TIMESTAMP DEFAULT current_timestamp, status INTEGER DEFAULT 0 NOT NULL, finished_at TIMESTAMP);")
+        (sql3:sql "CREATE TABLE IF NOT EXISTS project_attributes_log (id INTEGER PRIMARY KEY, project_id integer, changed_at TIMESTAMP DEFAULT current_timestamp, old_project_name VARCHAR(100), new_project_name VARCHAR(100), old_client VARCHAR(100), new_client VARCHAR(100), old_hourly_rate FLOAT, new_hourly_rate FLOAT);")
+        (sql3:sql "CREATE TRIGGER IF NOT EXISTS log_attributes_trigger AFTER UPDATE ON projects WHEN OLD.project_name <> NEW.project_name OR OLD.client <> NEW.client OR OLD.hourly_rate <> NEW.hourly_rate BEGIN INSERT INTO project_attributes_log (project_id, old_project_name, new_project_name, old_client, new_client, old_hourly_rate, new_hourly_rate) VALUES (OLD.id, OLD.project_name, NEW.project_name, OLD.client, NEW.client, OLD.hourly_rate, NEW.hourly_rate); END;")
+        (sql3:sql "CREATE TABLE IF NOT EXISTS project_status_log (id INTEGER PRIMARY KEY, project_id integer, changed_at TIMESTAMP DEFAULT current_timestamp, old_status INTEGER, new_status INTEGER, time_logged INTEGER DEFAULT 0 NOT NULL);")
+        (sql3:sql "CREATE TRIGGER IF NOT EXISTS log_status_trigger AFTER UPDATE ON projects WHEN OLD.status <> NEW.status BEGIN INSERT INTO project_status_log (project_id, old_status, new_status) VALUES (OLD.id, OLD.status, NEW.status); END;")
     )
 )
 
