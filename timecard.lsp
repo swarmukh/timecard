@@ -91,10 +91,17 @@
     (map println (sql3:sql "SELECT * FROM projects;"))
 )
 
+; TODO: Cannot start a finished or terminated project
 (define (start-project project-id)
-    (if (sql3:sql "UPDATE projects SET status = 1 WHERE id = ?;" (list project-id))
-        (println project-id " started!")
-        (sql3:error)
+    (begin
+        (stop-project working-project-id)
+        (if (sql3:sql "UPDATE projects SET status = 1 WHERE id = ?;" (list project-id))
+            (begin
+                (println project-id " started!")
+                (setq working-project-id project-id)
+            )
+            (sql3:error)
+        )
     )
 )
 
@@ -103,8 +110,8 @@
 )
 
 (define (stop-project project-id)
-    (if (sql3:sql "UPDATE projects SET status = 2 WHERE id = ?;" (list project_id))
-        (println "Work on project stopped")
+    (if (sql3:sql "UPDATE projects SET status = 2 WHERE id = ?;" (list project-id))
+        (println (string "Work on project " project-id " stopped!"))
         (sql3:error)
     )
 )
