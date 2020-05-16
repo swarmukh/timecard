@@ -44,7 +44,7 @@
 (define (show-help)
     (begin
         (println "\nAvailable commands:\n")
-        (println "new <project-name>\t: Create a new project. Other required inputs will follow.")
+        (println "new\t: Create a new project. Other required inputs will follow.")
         (println "modify <project-id>\t: Modify attributes of project. Other required inputs will follow.")
         (println "finish <project-id>\t: Complete project. All details will be saved.\n")
         (println "list\t: List all unfinished projects.")
@@ -58,7 +58,7 @@
 )
 
 (define (create-project)
-    (begin
+    (local (project-name client rate)
         (print "Project name: ")
         (setq project-name (read-line))
         (print "Client: ")
@@ -69,7 +69,6 @@
             (println project-name " created!")
             (sql3:error)
         )
-        ;;(push (list project-name rate) project-list -1)
     )
 )
 
