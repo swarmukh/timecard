@@ -20,7 +20,7 @@
     (do-while (!= action "exit")
         (begin
             (initialise-db-and-data)
-            (print "? ")
+            (print "timecard> ")
             (setq action-string (read-line))
             (setq tokenised-string (parse action-string))
             (setq action (tokenised-string 0))
